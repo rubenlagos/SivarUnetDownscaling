@@ -1,16 +1,16 @@
-# 🌬️ WindNet: CNN-based Wind Downscaling for Complex Terrain
+# 🌬️ U-Net Wind Downscaling for Complex Coastal Terrain in Southern Chile
 
 <p align="center">
-  <img src="graphical_abstract.jpg" alt="Graphical Abstract" width="900"/>
+  <img src="img/graphical_abstract.jpg" alt="Graphical Abstract" width="850"/>
 </p>
 
-> **Hyper-resolution downscaling of near-surface winds over southern Chile's fjord-dominated coastal domain using a physically informed U-Net.**
+> **A deep learning framework for downscaling 3 km WRF forecasts to 333 m near-surface wind fields over southern Chile's fjord-dominated coastal domain.**
 
 ---
 
 ## 📖 About
 
-Accurate wind forecasting in complex terrain is limited by the coarse resolution of numerical weather prediction (NWP) models. **WindNet** addresses this by applying a lightweight **2D-to-2D U-Net** to downscale 10-m wind components (*U*, *V*) from kilometer-scale NWP output to **333-m resolution** across southern Chile.
+Accurate wind forecasting in complex terrain is limited by the coarse resolution of numerical weather prediction (NWP) models. This work presents a **2D-to-2D U-Net** trained as a high-resolution WRF emulator to downscale 10-m wind components (*U*, *V*) from **3 km WRF forecasts** to **~333 m resolution** over a highly complex coastal–insular domain in southern Chile.
 
 The model takes as input:
 - 🌀 Bicubically interpolated low-resolution wind fields (*U10*, *V10*)
@@ -27,8 +27,9 @@ Training is guided by a **physically informed composite loss** that jointly pena
 | Coastal / high-topography zones | **>22%** improvement |
 | Spatiotemporal coherence (*r* ≥ 0.8) | **93%** of domain |
 
-> The framework is **operationally deployed** in the [SiVAR](https://sivar.cl) forecasting system, providing high-resolution wind fields for environmental and maritime applications.
+> The framework is **operationally deployed** in the SiVAR forecasting system, providing high-resolution wind fields for environmental and maritime applications.
 
 ---
 
 ## 📁 Repository Structure
+
