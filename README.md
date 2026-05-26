@@ -32,4 +32,8 @@ Training is guided by a **physically constrained composite loss** that jointly p
 ---
 
 ## 📁 Repository Structure
+## 📦 Install dependencies
+## 📓 Run the demo notebook
+## 📄 Citation
+## 📬 Contact
 
