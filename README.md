@@ -16,7 +16,7 @@ The model takes as input:
 - 🌀 Bicubically interpolated low-resolution wind fields (*U10*, *V10*)
 - 🏔️ 29 high-resolution topographic descriptors (elevation, slope, aspect, flow-deflection indices)
 
-Training is guided by a **physically informed composite loss** that jointly penalizes errors in wind speed, direction, and spatial gradients, combined with **coastal-mask spatial weighting** to prioritize complex terrain regions.
+Training is guided by a **physically constrained composite loss** that jointly penalizes errors in wind speed, direction, and spatial gradients, combined with **coastal-mask spatial weighting** to prioritize complex terrain regions.
 
 ### ✨ Key Results
 
