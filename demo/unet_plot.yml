@@ -1,0 +1,27 @@
+name: unet_plot
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - wrf-python
+  - pip:
+    - numpy==1.26.4
+    - pandas==2.2.2
+    - tensorflow==2.21.0
+    - matplotlib==3.9.2
+    - cartopy==0.25.0
+    - xarray==2024.7.0
+    - netcdf4==1.7.1.post2
+    - h5py==3.14.0
+    - scikit-learn==1.6.1
+    - scipy==1.15.2
+    - geopandas==1.0.1
+    - shapely==2.1.2
+    - pyproj==3.7.1
+    - elevation==1.1.3
+    - richdem==0.3.4
+    - requests==2.34.2
+    - tqdm==4.66.5
+    - pillow==10.4.0
+    - wrapt==2.2.1
