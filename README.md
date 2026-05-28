@@ -34,8 +34,6 @@ Training is guided by a **physically constrained composite loss** that jointly p
 ## 📁 Repository Structure
 ## 📓 Run the demo notebook
 
-### Running the Demo
-
 All commands should be executed from within the `demo/` directory.
 
 **1. Generate a prediction**
