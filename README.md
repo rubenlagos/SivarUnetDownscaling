@@ -44,11 +44,13 @@ All commands should be executed from within the `demo/` directory.
 conda env create -f env_unetpred.yml
 conda activate env_test
 python unet_prediction.py
+```
 
 Run the prediction script:
 
 ```bash
 python unet_prediction.py
+```
 
 This will take a sample input tensor corresponding to a pair of low-resolution simulation hours and generate a prediction. The output file will be saved in the same directory.
 
@@ -58,6 +60,9 @@ Create and activate the plotting environment:
 ```bash
 conda env create -f unet_plot.yml
 conda activate unet_plot
+```
+
+> ⚠️ Make sure unet_prediction.py has run successfully before proceeding.
 
 Open plot.ipynb and use the plot_pred_vs_target function to explore and compare the different model outputs.
 
