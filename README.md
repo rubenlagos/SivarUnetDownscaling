@@ -54,7 +54,7 @@ python unet_prediction.py
 
 This will take a sample input tensor corresponding to a pair of low-resolution simulation hours and generate a prediction. The output file will be saved in the same directory.
 
-**2. Exploring the Results
+**2. Exploring the Results**
 Create and activate the plotting environment:
 
 ```bash
