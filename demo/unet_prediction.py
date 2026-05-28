@@ -9,32 +9,46 @@ import json
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from datetime import datetime
 
-from Unet_model import red_unet as unet_arq
-from Unet_complements import (
+from utils.unet_model import red_unet as unet_arq
+from utils.unet_functions import (
     composite_wind_loss_with_grad,
     add_sample_weight_from_coast,
     add_unit_weight,
     LrLogger
 )
+import logging
 
-###### Paths ######
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
-#Factors:
-scale_factors_path = "Extra/minmax_scales.json"
-#data:
-path_tensores = "New_datos/" 
-#saving experiments
-folder_experiments= "experimentos"
-
-with open(f'{scale_factors_path}') as f:
-    scales = json.load(f)
-U10_MIN, U10_MAX = scales["u10_target"]["min"], scales["u10_target"]["max"]
-V10_MIN, V10_MAX = scales["v10_target"]["min"], scales["v10_target"]["max"]
-
+###### 0. Some functions #########
 def desnormalize_u10_v10(arr):
     """
-    arr: np.ndarray con shape (..., 2) donde arr[...,0]=U10_norm, arr[...,1]=V10_norm
-    Normalización esperada: x_norm = (x - min) / (max - min)
+    Reverse min-max normalization for U10 and V10 wind components.
+
+    Converts normalized values back to their original physical scale using
+    the inverse of min-max normalization: x = x_norm * (max - min) + min.
+
+    Parameters
+    ----------
+    arr : array_like
+        Array with shape (..., 2) where arr[..., 0] contains normalized U10
+        (eastward wind) values and arr[..., 1] contains normalized V10
+        (northward wind) values. Values are expected in the [0, 1] range.
+
+    Returns
+    -------
+    np.ndarray
+        Array of the same shape as the input (dtype float32) with
+        denormalized U10 and V10 values in their original units (m/s).
+
+    Raises
+    ------
+    AssertionError
+        If the last dimension of `arr` is not 2.
     """
     arr = np.asarray(arr)
     assert arr.shape[-1] == 2, "Se espera última dimensión=2 (U10, V10)."
@@ -93,64 +107,65 @@ def patches_to_maps_batched(patches: np.ndarray) -> np.ndarray:
 
     return out  # (B, 384, 416, 2)
 
-exp_name = f"Experimento_5_UNET_ep200_epTR127_bs128_lr0.001_f1_loss_exp5_alpha135_ch29_20251202-074631"
+###### 1. Paths ######
+path_scalefactors = "../Extra/minmax_scales.json"
+path_data= "extra/" 
+path_weights= "weights/"
 
-#############################################
-##### 0. Implementaciones previas ###########
-#############################################
+###### 2. Scale Factors ##########
+with open(f'{path_scalefactors}') as f:
+    scales = json.load(f)
+U10_MIN, U10_MAX = scales["u10_target"]["min"], scales["u10_target"]["max"]
+V10_MIN, V10_MAX = scales["v10_target"]["min"], scales["v10_target"]["max"]
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' #verbose
+###### 3. Import Vars ################
 
-# Fijar las semillas para reproducibilidad
-os.environ['PYTHONHASHSEED'] = '42' # A veces, hay fuentes de aleatoriedad en hardware y compiladores que pueden influir
-random.seed(42) #controla funciones aleatorias de Python como random
-np.random.seed(42) #muchos calculos de redes neuronales utilizan NumPy asi que tambien lo fijamos
-tf.random.set_seed(42) #controla operaciones aleatorias dentro de TensorFlow
-os.environ['TF_DETERMINISTIC_OPS'] = '1' # Opcional: para garantizar determinismo en operaciones GPU, puede mermar el rendimiento. 
-
-#Estrategia de entrenamiento
-tf.debugging.set_log_device_placement(False)
-gpus = tf.config.list_logical_devices('GPU')
-mirrored_strategy=tf.distribute.MultiWorkerMirroredStrategy()
-
-
-############################################################
-######### 1. Importación de las variables ##################
-############################################################
-
-with tf.device('/cpu:0'):
-
-   var_names=  ["u10_input",  "v10_input",  "speed_input","dir_input", "dir_cos_input", "dir_sin_input",
-                "psfc_input", "pblh_input", "th2_input",  "t2_input", 
-
-                "hgt_target",  "xland_target", "coastmask_target", "diff_hgt_input", "znt_target",
-                "aspect_target", "aspect_sin_target", "aspect_cos_target", "slope_target" , 
+# Variable index mapping:
+# ┌───────┬─────────────────────┐
+# │ Index │ Variable            │
+# ├───────┼─────────────────────┤
+# │   0   │ u10_input           │
+# │   1   │ v10_input           │
+# │   2   │ speed_input         │
+# │   3   │ dir_input           │
+# │   4   │ dir_cos_input       │
+# │   5   │ dir_sin_input       │
+# │   6   │ psfc_input          │
+# │   7   │ pblh_input          │
+# │   8   │ th2_input           │
+# │   9   │ t2_input            │
+# │  10   │ hgt_target          │
+# │  11   │ xland_target        │
+# │  12   │ coastmask_target    │
+# │  13   │ diff_hgt_input      │
+# │  14   │ znt_target          │
+# │  15   │ aspect_target       │
+# │  16   │ aspect_sin_target   │
+# │  17   │ aspect_cos_target   │
+# │  18   │ slope_target        │
+# │  19   │ Eplus_input         │
+# │  20   │ Emin_input          │
+# │  21   │ EplusU_input        │
+# │  22   │ EplusV_input        │
+# │  23   │ EminU_input         │
+# │  24   │ EminV_input         │
+# │  25   │ EplusUV_input       │
+# │  26   │ EminUV_input        │
+# │  27   │ Utan_input          │
+# │  28   │ Vtan_input          │
+# └───────┴─────────────────────┘
                 
-                "Eplus_input", "Emin_input", "EplusU_input", "EplusV_input",   "EminU_input", "EminV_input",   "EplusUV_input", "EminUV_input", 
-                "Utan_input", "Vtan_input",
-                "u10_target", "v10_target"]
-                #,
-                  
+logger.info("Loading data...")
+X  = np.load("extra/X_validacion_example.npy").astype(np.float32)
+logger.info("Input data shape: %s", X.shape)
 
+###### 4. Model import ################
+BATCH_SIZE = 128
+AUTOTUNE = tf.data.AUTOTUNE
+dataset_val   = tf.data.Dataset.from_tensor_slices((X))
+dataset_val   = dataset_val.batch(BATCH_SIZE, drop_remainder=False)
+dataset_val = dataset_val.prefetch(AUTOTUNE)
 
-
-
-   inputs_va   = np.load("Extra/X_validacion_example.npy").astype(np.float32)
-   target_va   = np.load("Extra/Y_validacion_example.npy").astype(np.float32)
-
-   print("inputs_va shape", inputs_va.shape)
-   print("Shape: ", inputs_va.shape, np.min(inputs_va), '-', np.max(inputs_va))
-
-   BATCH_SIZE = 128
-   AUTOTUNE = tf.data.AUTOTUNE
-
-   dataset_val   = tf.data.Dataset.from_tensor_slices((inputs_va))
-   dataset_val   = dataset_val.batch(BATCH_SIZE, drop_remainder=False)
-   dataset_val = dataset_val.prefetch(AUTOTUNE)
-
-
-##### 2.3 Implementación en gpu
-# Hiperparámetros iniciales recomendados Exp5
 LAM_UV  = 1.0
 LAM_MAG = 0.5 
 LAM_ANG = 0.3 
@@ -165,32 +180,26 @@ loss_exp5 = composite_wind_loss_with_grad(
     huber_delta=HUBER_DELTA
 )
 
-# Importante: ajusta input_size al número real de canales de entrada que usas
-# Aquí sólo muestro el patrón, mantén tu valor correcto en input_size
+model = unet_arq(
+    input_size=(32, 32, 29),  # pon aquí tu C_in actual
+    grad_loss=loss_exp5,
+    num_clases=2
+)
 
+logger.info("Loading weights...")
+model.load_weights(f'weights/weights.h5')
 
-with mirrored_strategy.scope():
-   #model = red_unet(grad_loss=custom_loss(factor)) #default input_size (32,32,4) y num_clases=2 
-    model = unet_arq(
-        input_size=(32, 32, 29),  # pon aquí tu C_in actual
-        grad_loss=loss_exp5,
-        num_clases=2
-    )
+##### 5. Prediction ############
+logger.info("Starting prediction...")
+Y_pred          = model.predict(X, batch_size=BATCH_SIZE , verbose=1)
+logger.info("Prediction shape: %s", Y_pred.shape)
 
-    model.load_weights(f'experimentos/{exp_name}/pesos/pesos.h5')
-    print("HOLA MUNDO")
+Y_pred_desnorm  = desnormalize_u10_v10(Y_pred)
+Y_pred_map      =  patches_to_maps_batched(Y_pred_desnorm)
 
-
-
-###########################################
-########### 4. Loggeo Modelo ##############
-###########################################
-
-preds = model.predict(dataset_val, batch_size=BATCH_SIZE , verbose=1)
-preds_dn  = desnormalize_u10_v10(preds)
-y_pred =  patches_to_maps_batched(preds_dn)
-
-np.save('Extra/Y_pred_example.npy', y_pred)
-np.save('Extra/Y_validation_map_example.npy', patches_to_maps_batched(desnormalize_u10_v10(target_va)))
-
+##### 6. Optional Saving
+pred_name = 'Y_pred_example.npy'
+path_pred = path_data + pred_name
+np.save(path_pred,Y_pred_map)
+logger.info("Predictions saved to: %s", path_pred)
 
